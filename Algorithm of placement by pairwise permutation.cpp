@@ -1,3 +1,4 @@
+//Алгоритм розміщення методом попарної перестановки
 #include <iostream>
 #include <vector>
 #include <algorithm>
