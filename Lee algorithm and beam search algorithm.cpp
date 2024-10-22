@@ -2,6 +2,7 @@
 #include <map>
 #include <unordered_map>
 #include <queue>
+#include <set>
 
 const int w = 9, h = 11, layerIndex = 2;
 const int MAX_VERTICES = 7;
@@ -10,9 +11,10 @@ void inputPositionMatrix(char positionMatrix[layerIndex][w][h], std::map<char, s
 void inputAdjacencyMatrix(int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], std::unordered_map<char, int>& elementMap);
 void printPositionMatrix(char positionMatrix[layerIndex][w][h], int layerIndex);
 void printAdjacencyMatrix(int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], std::unordered_map<char, int>& elementMap);
-char findMaxConnectedElement(int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], std::unordered_map<char, int>& elementMap);
 
-int leeAlgorithm(char positionMatrix[layerIndex][w][h], std::map<char, std::pair<int, int>>& elementCoordinates, char start, char target);
+char findMaxConnectedElement(int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], std::unordered_map<char, int>& elementMap);
+int leeAlgorithm(char positionMatrix[layerIndex][w][h], int layerIndex, std::map<char, std::pair<int, int>>& elementCoordinates, char start, char target);
+void leeConnectElements(char positionMatrix[layerIndex][w][h], int layerIndex, int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], std::map<char, std::pair<int, int>>& elementCoordinates, std::unordered_map<char, int> elementMap);
 
 int main()
 {
@@ -32,7 +34,6 @@ int main()
 
     std::map<char, std::pair<int, int>> elementCoordinates;
     std::unordered_map<char, int> elementMap;
-    std::unordered_map<char, int> unplacedElementMap;
 
     elementCoordinates['A'] = { 2,1 };
     elementCoordinates['B'] = { 5,1 };
@@ -65,11 +66,11 @@ int main()
         int y = element.second.second;
 
         positionMatrix[0][x][y] = key;
+        positionMatrix[1][x][y] = key;
         elementMap.insert({ key,count });
         count++;
     }
 
-    unplacedElementMap = elementMap;
     /*
     H D 2
     H A 1
@@ -87,31 +88,20 @@ int main()
 
     printPositionMatrix(positionMatrix, 0);
     printAdjacencyMatrix(adjacencyMatrix, elementMap);
-
-    char maxElement = findMaxConnectedElement(adjacencyMatrix, elementMap);
-
-    int result = leeAlgorithm(positionMatrix, elementCoordinates, 'F', 'A');
-
-    if (result != -1) 
-    {
-        std::cout << "Lenght of shortest path: " << result << std::endl;
-    }
-    else 
-    {
-        std::cout << "No path!" << std::endl;
-    }
-
-    printPositionMatrix(positionMatrix, 0);
-
+    
+    leeConnectElements(positionMatrix,0,adjacencyMatrix,elementCoordinates,elementMap);
 }
 
 void initializePositionMatrix(char positionMatrix[layerIndex][w][h])
 {
-    for (int i = 0; i < h; i++)
+    for (int k = 0; k < layerIndex; k++)
     {
-        for (int j = 0; j < w; j++)
+        for (int i = 0; i < h; i++)
         {
-            positionMatrix[0][j][i] = '.';
+            for (int j = 0; j < w; j++)
+            {
+                positionMatrix[k][j][i] = '.';
+            }
         }
     }
 }
@@ -239,7 +229,7 @@ char findMaxConnectedElement(int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], st
     return maxElement;
 }
 
-int leeAlgorithm(char positionMatrix[layerIndex][w][h], std::map<char, std::pair<int, int>>& elementCoordinates, char start, char target)
+int leeAlgorithm(char positionMatrix[layerIndex][w][h], int layerIndex, std::map<char, std::pair<int, int>>& elementCoordinates, char start, char target)
 {
     const int dx[] = { -1, 1, 0, 0 };
     const int dy[] = { 0, 0, -1, 1 };
@@ -271,7 +261,7 @@ int leeAlgorithm(char positionMatrix[layerIndex][w][h], std::map<char, std::pair
             int newX = x + dx[i];
             int newY = y + dy[i];
 
-            if (((newX >= 0 && newX < w && newY >= 0 && newY < h) && (positionMatrix[0][newX][newY] == '.' || positionMatrix[0][newX][newY] == target)) && distanceMatrix[newX][newY] == -1)
+            if (((newX >= 0 && newX < w && newY >= 0 && newY < h) && (positionMatrix[layerIndex][newX][newY] == '.' || positionMatrix[layerIndex][newX][newY] == target)) && distanceMatrix[newX][newY] == -1)
             {
                 distanceMatrix[newX][newY] = distanceMatrix[x][y] + 1;
                 prevPositions[newX][newY] = { x,y };
@@ -284,7 +274,7 @@ int leeAlgorithm(char positionMatrix[layerIndex][w][h], std::map<char, std::pair
                     {
                         if (pathX != targetX || pathY != targetY) 
                         {
-                            positionMatrix[0][pathX][pathY] = '+';
+                            positionMatrix[layerIndex][pathX][pathY] = '#';
                         }
                         std::tie(pathX, pathY) = prevPositions[pathX][pathY];
                     }
@@ -293,6 +283,63 @@ int leeAlgorithm(char positionMatrix[layerIndex][w][h], std::map<char, std::pair
             }
         }
     }
-    
     return -1;
+}
+
+void leeConnectElements(char positionMatrix[layerIndex][w][h], int layer, int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], std::map<char, std::pair<int, int>>& elementCoordinates, std::unordered_map<char, int> elementMap) 
+{
+    int leeSumOfLengths = 0;
+    
+    std::set<std::pair<char, char>> connectedPairs;
+
+    while (!elementMap.empty()) 
+    {
+        char maxElement = findMaxConnectedElement(adjacencyMatrix, elementMap);
+        if (maxElement == '\0') 
+        {
+            break;
+        }
+
+        int maxIndex = elementMap[maxElement];
+        bool connected = false;
+        for (const auto& pair : elementMap) 
+        {
+            char otherElement = pair.first;
+            int otherIndex = pair.second;
+
+            if (adjacencyMatrix[maxIndex][otherIndex] > 0 && connectedPairs.find({ maxElement, otherElement }) == connectedPairs.end()) 
+            {
+                std::cout << "Connecting " << maxElement << " with " << otherElement << "...\n";
+                int result = -1;
+                for (layer = 0; layer < layerIndex; layer++) 
+                {
+                    result = leeAlgorithm(positionMatrix, layer, elementCoordinates, maxElement, otherElement);
+                    if (result != -1) 
+                    {
+                        std::cout << "Length of shortest path: " << result << std::endl;
+                        printPositionMatrix(positionMatrix, layer);
+
+                        connectedPairs.insert({ maxElement, otherElement });
+                        connectedPairs.insert({ otherElement, maxElement });
+
+                        connected = true;
+
+                        leeSumOfLengths += result * adjacencyMatrix[maxIndex][otherIndex];
+                        break;
+                    }
+                    else
+                    {
+                        std::cout << "No path for " << maxElement << " with " << otherElement << "!\n";
+                        std::cout << "Trying layer [" << layer+1 << "]...\n";
+                    }
+                }
+            }
+        }
+
+        if (!connected) 
+        {
+            elementMap.erase(maxElement);
+        }
+    }
+    std::cout << "Sum of all Lee length * number of connections: " << leeSumOfLengths << std::endl;
 }
