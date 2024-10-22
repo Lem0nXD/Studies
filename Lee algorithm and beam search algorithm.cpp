@@ -5,18 +5,20 @@
 
 const int w = 9, h = 11, layerIndex = 2;
 const int MAX_VERTICES = 7;
-void initializePositionMatrix(char positionMatrix[layerIndex][w][h], int layerIndex);
+void initializePositionMatrix(char positionMatrix[layerIndex][w][h]);
 void inputPositionMatrix(char positionMatrix[layerIndex][w][h], std::map<char, std::pair<int, int>>& elementCoordinates);
 void inputAdjacencyMatrix(int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], std::unordered_map<char, int>& elementMap);
 void printPositionMatrix(char positionMatrix[layerIndex][w][h], int layerIndex);
 void printAdjacencyMatrix(int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], std::unordered_map<char, int>& elementMap);
 char findMaxConnectedElement(int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], std::unordered_map<char, int>& elementMap);
 
+int leeAlgorithm(char positionMatrix[layerIndex][w][h], std::map<char, std::pair<int, int>>& elementCoordinates, char start, char target);
+
 int main()
 {
 
     char positionMatrix[layerIndex][w][h];
-    int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES] = 
+    int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES] =
     {
         //0
         {0,0,0,0,0,1,1},
@@ -40,17 +42,17 @@ int main()
     elementCoordinates['F'] = { 6,4 };
     elementCoordinates['H'] = { 3,9 };
 
-    initializePositionMatrix(positionMatrix, 0);
-   /*
-   A 2 1
-   B 5 1
-   C 2 4
-   F 6 4
-   E 1 7
-   D 7 8
-   H 3 9
-   X -1 -1
-   */
+    initializePositionMatrix(positionMatrix);
+    /*
+    A 2 1
+    B 5 1
+    C 2 4
+    F 6 4
+    E 1 7
+    D 7 8
+    H 3 9
+    X -1 -1
+    */
 
     //inputPositionMatrix(positionMatrix, elementCoordinates);
 
@@ -63,10 +65,10 @@ int main()
         int y = element.second.second;
 
         positionMatrix[0][x][y] = key;
-        elementMap.insert({key,count});
+        elementMap.insert({ key,count });
         count++;
     }
-    
+
     unplacedElementMap = elementMap;
     /*
     H D 2
@@ -82,23 +84,34 @@ int main()
     */
 
     //inputAdjacencyMatrix(adjacencyMatrix, elementMap);
-    
+
     printPositionMatrix(positionMatrix, 0);
     printAdjacencyMatrix(adjacencyMatrix, elementMap);
 
     char maxElement = findMaxConnectedElement(adjacencyMatrix, elementMap);
 
+    int result = leeAlgorithm(positionMatrix, elementCoordinates, 'F', 'A');
+
+    if (result != -1) 
+    {
+        std::cout << "Lenght of shortest path: " << result << std::endl;
+    }
+    else 
+    {
+        std::cout << "No path!" << std::endl;
+    }
+
     printPositionMatrix(positionMatrix, 0);
 
 }
 
-void initializePositionMatrix(char positionMatrix[layerIndex][w][h], int layerIndex)
+void initializePositionMatrix(char positionMatrix[layerIndex][w][h])
 {
     for (int i = 0; i < h; i++)
     {
         for (int j = 0; j < w; j++)
         {
-            positionMatrix[layerIndex][j][i] = '.';
+            positionMatrix[0][j][i] = '.';
         }
     }
 }
@@ -224,4 +237,62 @@ char findMaxConnectedElement(int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], st
     }
 
     return maxElement;
+}
+
+int leeAlgorithm(char positionMatrix[layerIndex][w][h], std::map<char, std::pair<int, int>>& elementCoordinates, char start, char target)
+{
+    const int dx[] = { -1, 1, 0, 0 };
+    const int dy[] = { 0, 0, -1, 1 };
+
+    int startX = elementCoordinates[start].first;
+    int startY = elementCoordinates[start].second;
+    int targetX = elementCoordinates[target].first;
+    int targetY = elementCoordinates[target].second;
+
+    int distanceMatrix[w][h];
+    for (auto& row : distanceMatrix)
+        for (auto& col : row)
+            col = -1;
+
+    std::vector<std::vector<std::pair<int, int>>> prevPositions(w, std::vector<std::pair<int, int>>(h, { -1, -1 }));
+
+    std::queue<std::pair<int, int>> q;
+
+    distanceMatrix[startX][startY] = 0;
+    q.push({ startX,startY });
+
+    while (!q.empty())
+    {
+        auto [x, y] = q.front();
+        q.pop();
+
+        for (int i = 0; i < 4; ++i)
+        {
+            int newX = x + dx[i];
+            int newY = y + dy[i];
+
+            if (((newX >= 0 && newX < w && newY >= 0 && newY < h) && (positionMatrix[0][newX][newY] == '.' || positionMatrix[0][newX][newY] == target)) && distanceMatrix[newX][newY] == -1)
+            {
+                distanceMatrix[newX][newY] = distanceMatrix[x][y] + 1;
+                prevPositions[newX][newY] = { x,y };
+                q.push({ newX,newY });
+
+                if (newX == targetX && newY == targetY) 
+                {
+                    int pathX = targetX, pathY = targetY;
+                    while (pathX != startX || pathY != startY) 
+                    {
+                        if (pathX != targetX || pathY != targetY) 
+                        {
+                            positionMatrix[0][pathX][pathY] = '+';
+                        }
+                        std::tie(pathX, pathY) = prevPositions[pathX][pathY];
+                    }
+                    return distanceMatrix[newX][newY];
+                }
+            }
+        }
+    }
+    
+    return -1;
 }
