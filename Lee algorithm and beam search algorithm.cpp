@@ -3,8 +3,9 @@
 #include <unordered_map>
 #include <queue>
 #include <set>
+#include <algorithm>
 
-const int w = 9, h = 11, layerIndex = 2;
+const int w = 9, h = 11, layerIndex = 3;
 const int MAX_VERTICES = 7;
 void initializePositionMatrix(char positionMatrix[layerIndex][w][h]);
 void inputPositionMatrix(char positionMatrix[layerIndex][w][h], std::map<char, std::pair<int, int>>& elementCoordinates);
@@ -13,24 +14,42 @@ void printPositionMatrix(char positionMatrix[layerIndex][w][h], int layerIndex);
 void printAdjacencyMatrix(int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], std::unordered_map<char, int>& elementMap);
 
 char findMaxConnectedElement(int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], std::unordered_map<char, int>& elementMap);
-int leeAlgorithm(char positionMatrix[layerIndex][w][h], int layerIndex, std::map<char, std::pair<int, int>>& elementCoordinates, char start, char target);
+int leeAlgorithm(char positionMatrix[layerIndex][w][h], int layerIndex, std::map<char, std::pair<int, int>>& elementCoordinates, char start, char target, char pathSymbol);
 void leeConnectElements(char positionMatrix[layerIndex][w][h], int layerIndex, int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], std::map<char, std::pair<int, int>>& elementCoordinates, std::unordered_map<char, int> elementMap);
+
+std::vector<std::pair<int, int>> getDirectionsA(const std::pair<int, int>& A, const std::pair<int, int>& B, int rayNumber);
+std::vector<std::pair<int, int>> getDirectionsB(const std::pair<int, int>& A, const std::pair<int, int>& B, int rayNumber);
+int traceBackPath(const std::vector<std::vector<std::pair<int, int>>>& prev, std::pair<int, int> start);
+void rayRestorePath(char positionMatrix[layerIndex][w][h], int layer, std::vector<std::vector<std::pair<int, int>>>& prev, std::pair<int, int> start, char marker);
+bool processRay(char positionMatrix[layerIndex][w][h], int layer,
+    std::queue<std::pair<int, int>>& queue,
+    std::vector<std::vector<bool>>& visited,
+    std::vector<std::vector<std::pair<int, int>>>& prev,
+    const std::vector<std::pair<int, int>>& directions,
+    const std::vector<std::vector<bool>>& otherVisited,
+    std::pair<int, int>& meetPoint);
+int rayAlgorithm(char positionMatrix[layerIndex][w][h], int layer, std::map<char, std::pair<int, int>>& elementCoordinates, char start, char target, char pathSymbol);
+void rayConnectElements(char positionMatrix[layerIndex][w][h], int layer, int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], std::map<char, std::pair<int, int>>& elementCoordinates, std::unordered_map<char, int> elementMap);
+
+
 
 int main()
 {
 
     char positionMatrix[layerIndex][w][h];
+    char positionMatrixRay[layerIndex][w][h];
     int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES] =
     {
-        //0
-        {0,0,0,0,0,1,1},
+        0
+        /*{0,0,0,0,0,1,1},
         {0,0,2,0,1,0,1},
         {0,2,0,0,1,0,0},
         {0,0,0,0,0,2,2},
         {0,1,1,0,0,2,0},
         {1,0,0,2,2,0,0},
-        {1,1,0,2,0,0,0}
+        {1,1,0,2,0,0,0}*/
     };
+
 
     std::map<char, std::pair<int, int>> elementCoordinates;
     std::unordered_map<char, int> elementMap;
@@ -44,6 +63,7 @@ int main()
     elementCoordinates['H'] = { 3,9 };
 
     initializePositionMatrix(positionMatrix);
+    initializePositionMatrix(positionMatrixRay);
     /*
     A 2 1
     B 5 1
@@ -55,7 +75,7 @@ int main()
     X -1 -1
     */
 
-    //inputPositionMatrix(positionMatrix, elementCoordinates);
+    inputPositionMatrix(positionMatrix, elementCoordinates);
 
 
     int count = 0;
@@ -65,8 +85,11 @@ int main()
         int x = element.second.first;
         int y = element.second.second;
 
-        positionMatrix[0][x][y] = key;
+        //positionMatrix[0][x][y] = key;
         positionMatrix[1][x][y] = key;
+        positionMatrixRay[0][x][y] = key;
+        positionMatrixRay[1][x][y] = key;
+        positionMatrixRay[2][x][y] = key;
         elementMap.insert({ key,count });
         count++;
     }
@@ -84,12 +107,21 @@ int main()
     X X 0
     */
 
-    //inputAdjacencyMatrix(adjacencyMatrix, elementMap);
+    inputAdjacencyMatrix(adjacencyMatrix, elementMap);
 
     printPositionMatrix(positionMatrix, 0);
     printAdjacencyMatrix(adjacencyMatrix, elementMap);
-    
-    leeConnectElements(positionMatrix,0,adjacencyMatrix,elementCoordinates,elementMap);
+
+    std::cout << "\n//////////////\n";
+    std::cout << "Lee algorithm:\n";
+    std::cout << "//////////////\n";
+    leeConnectElements(positionMatrix, 0, adjacencyMatrix, elementCoordinates, elementMap);
+
+    std::cout << "\n//////////////////////\n";
+    std::cout << "Ray search algorithm:\n";
+    std::cout << "//////////////////////\n";
+    printPositionMatrix(positionMatrixRay, 0);
+    rayConnectElements(positionMatrixRay, 0, adjacencyMatrix, elementCoordinates, elementMap);
 }
 
 void initializePositionMatrix(char positionMatrix[layerIndex][w][h])
@@ -178,7 +210,6 @@ void printPositionMatrix(char positionMatrix[layerIndex][w][h], int layerIndex)
 
 void printAdjacencyMatrix(int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], std::unordered_map<char, int>& elementMap)
 {
-    // Reverse the unordered_map to print the matrix with element names
     std::unordered_map<int, char> reverseMap;
     for (const auto& pair : elementMap)
     {
@@ -229,7 +260,7 @@ char findMaxConnectedElement(int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], st
     return maxElement;
 }
 
-int leeAlgorithm(char positionMatrix[layerIndex][w][h], int layerIndex, std::map<char, std::pair<int, int>>& elementCoordinates, char start, char target)
+int leeAlgorithm(char positionMatrix[layerIndex][w][h], int layer, std::map<char, std::pair<int, int>>& elementCoordinates, char start, char target, char pathSymbol)
 {
     const int dx[] = { -1, 1, 0, 0 };
     const int dy[] = { 0, 0, -1, 1 };
@@ -261,20 +292,20 @@ int leeAlgorithm(char positionMatrix[layerIndex][w][h], int layerIndex, std::map
             int newX = x + dx[i];
             int newY = y + dy[i];
 
-            if (((newX >= 0 && newX < w && newY >= 0 && newY < h) && (positionMatrix[layerIndex][newX][newY] == '.' || positionMatrix[layerIndex][newX][newY] == target)) && distanceMatrix[newX][newY] == -1)
+            if (((newX >= 0 && newX < w && newY >= 0 && newY < h) && (positionMatrix[layer][newX][newY] == '.' || positionMatrix[layer][newX][newY] == target)) && distanceMatrix[newX][newY] == -1)
             {
                 distanceMatrix[newX][newY] = distanceMatrix[x][y] + 1;
                 prevPositions[newX][newY] = { x,y };
                 q.push({ newX,newY });
 
-                if (newX == targetX && newY == targetY) 
+                if (newX == targetX && newY == targetY)
                 {
                     int pathX = targetX, pathY = targetY;
-                    while (pathX != startX || pathY != startY) 
+                    while (pathX != startX || pathY != startY)
                     {
-                        if (pathX != targetX || pathY != targetY) 
+                        if (pathX != targetX || pathY != targetY)
                         {
-                            positionMatrix[layerIndex][pathX][pathY] = '#';
+                            positionMatrix[layer][pathX][pathY] = pathSymbol;
                         }
                         std::tie(pathX, pathY) = prevPositions[pathX][pathY];
                     }
@@ -286,35 +317,36 @@ int leeAlgorithm(char positionMatrix[layerIndex][w][h], int layerIndex, std::map
     return -1;
 }
 
-void leeConnectElements(char positionMatrix[layerIndex][w][h], int layer, int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], std::map<char, std::pair<int, int>>& elementCoordinates, std::unordered_map<char, int> elementMap) 
+void leeConnectElements(char positionMatrix[layerIndex][w][h], int layer, int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], std::map<char, std::pair<int, int>>& elementCoordinates, std::unordered_map<char, int> elementMap)
 {
     int leeSumOfLengths = 0;
-    
+    int pathNum = 49; //'1'
+
     std::set<std::pair<char, char>> connectedPairs;
 
-    while (!elementMap.empty()) 
+    while (!elementMap.empty())
     {
         char maxElement = findMaxConnectedElement(adjacencyMatrix, elementMap);
-        if (maxElement == '\0') 
+        if (maxElement == '\0')
         {
             break;
         }
 
         int maxIndex = elementMap[maxElement];
         bool connected = false;
-        for (const auto& pair : elementMap) 
+        for (const auto& pair : elementMap)
         {
             char otherElement = pair.first;
             int otherIndex = pair.second;
 
-            if (adjacencyMatrix[maxIndex][otherIndex] > 0 && connectedPairs.find({ maxElement, otherElement }) == connectedPairs.end()) 
+            if (adjacencyMatrix[maxIndex][otherIndex] > 0 && connectedPairs.find({ maxElement, otherElement }) == connectedPairs.end())
             {
                 std::cout << "Connecting " << maxElement << " with " << otherElement << "...\n";
                 int result = -1;
-                for (layer = 0; layer < layerIndex; layer++) 
+                for (layer = 0; layer < layerIndex; layer++)
                 {
-                    result = leeAlgorithm(positionMatrix, layer, elementCoordinates, maxElement, otherElement);
-                    if (result != -1) 
+                    result = leeAlgorithm(positionMatrix, layer, elementCoordinates, maxElement, otherElement, pathNum);
+                    if (result != -1)
                     {
                         std::cout << "Length of shortest path: " << result << std::endl;
                         printPositionMatrix(positionMatrix, layer);
@@ -325,21 +357,213 @@ void leeConnectElements(char positionMatrix[layerIndex][w][h], int layer, int ad
                         connected = true;
 
                         leeSumOfLengths += result * adjacencyMatrix[maxIndex][otherIndex];
+                        pathNum++;
                         break;
                     }
                     else
                     {
                         std::cout << "No path for " << maxElement << " with " << otherElement << "!\n";
-                        std::cout << "Trying layer [" << layer+1 << "]...\n";
+                        std::cout << "Trying layer [" << layer + 1 << "]...\n";
                     }
                 }
             }
         }
 
-        if (!connected) 
+        if (!connected)
         {
             elementMap.erase(maxElement);
         }
     }
     std::cout << "Sum of all Lee length * number of connections: " << leeSumOfLengths << std::endl;
+}
+
+void rayRestorePath(char positionMatrix[layerIndex][w][h], int layer, std::vector<std::vector<std::pair<int, int>>>& prev, std::pair<int, int> start, char marker)
+{
+    while (prev[start.first][start.second] != std::make_pair(-1, -1)) {
+        positionMatrix[layer][start.first][start.second] = marker;
+        start = prev[start.first][start.second];
+    }
+}
+
+std::vector<std::pair<int, int>> getDirectionsA(const std::pair<int, int>& A, const std::pair<int, int>& B, int rayNumber) 
+{
+    bool isRight = A.second < B.second;
+    bool isBelow = A.first < B.first;
+
+    if (rayNumber == 1) 
+    {
+        return isBelow ? std::vector<std::pair<int, int>>{{1, 0}, { 0, isRight ? 1 : -1 }}   // Вниз, вправо або вліво
+        : std::vector<std::pair<int, int>>{ {-1, 0}, {0, isRight ? 1 : -1} };  // Вгору, вправо або вліво
+    }
+    else 
+    {
+        return isBelow ? std::vector<std::pair<int, int>>{{0, isRight ? 1 : -1}, { 1, 0 }}   // Вправо/вліво, вниз
+        : std::vector<std::pair<int, int>>{ {0, isRight ? 1 : -1}, {-1, 0} }; // Вправо/вліво, вгору
+    }
+}
+
+std::vector<std::pair<int, int>> getDirectionsB(const std::pair<int, int>& A, const std::pair<int, int>& B, int rayNumber) 
+{
+    bool isRight = A.second < B.second;
+    bool isBelow = A.first < B.first;
+
+    if (rayNumber == 1) {
+        return isBelow ? std::vector<std::pair<int, int>>{{-1, 0}, { 0, isRight ? -1 : 1 }}   // Вгору, вліво або вправо
+        : std::vector<std::pair<int, int>>{ {1, 0}, {0, isRight ? -1 : 1} };   // Вниз, вліво або вправо
+    }
+    else 
+    {
+        return isBelow ? std::vector<std::pair<int, int>>{{0, isRight ? -1 : 1}, { -1, 0 }}   // Вліво/вправо, вгору
+        : std::vector<std::pair<int, int>>{ {0, isRight ? -1 : 1}, {1, 0} };   // Вліво/вправо, вниз
+    }
+}
+
+int traceBackPath(const std::vector<std::vector<std::pair<int, int>>>& prev, std::pair<int, int> start) 
+{
+    int length = 0;
+    while (prev[start.first][start.second] != std::make_pair(-1, -1)) 
+    {
+        length++;
+        start = prev[start.first][start.second];
+    }
+    return length;
+}
+
+bool processRay(char positionMatrix[layerIndex][w][h], int layer,
+    std::queue<std::pair<int, int>>& queue, 
+    std::vector<std::vector<bool>>& visited,
+    std::vector<std::vector<std::pair<int, int>>>& prev,
+    const std::vector<std::pair<int, int>>& directions,
+    const std::vector<std::vector<bool>>& otherVisited,
+    std::pair<int, int>& meetPoint)
+{
+    if (!queue.empty()) 
+    {
+        auto [x, y] = queue.front();
+        queue.pop();
+
+        for (const auto& dir : directions) 
+        {
+            int newX = x + dir.first;
+            int newY = y + dir.second;
+
+            if (newX >= 0 && newX < w && newY >= 0 && newY < h && positionMatrix[layer][newX][newY] == '.' && !visited[newX][newY]) 
+            {
+                visited[newX][newY] = true;
+                queue.push({ newX, newY });
+                prev[newX][newY] = { x, y };
+
+                if (otherVisited[newX][newY]) 
+                {
+                    meetPoint = { newX, newY };
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+int rayAlgorithm(char positionMatrix[layerIndex][w][h], int layer,
+    std::map<char, std::pair<int, int>>& elementCoordinates,
+    char start, char target, char pathSymbol)
+{
+    std::pair<int, int> A = elementCoordinates[start];
+    std::pair<int, int> B = elementCoordinates[target];
+
+    std::queue<std::pair<int, int>> queueA, queueB;
+    queueA.push(A);
+    queueB.push(B);
+
+    std::vector<std::vector<bool>> visitedA(w, std::vector<bool>(h, false));
+    std::vector<std::vector<bool>> visitedB(w, std::vector<bool>(h, false));
+
+    std::vector<std::vector<std::pair<int, int>>> prevA(w, std::vector<std::pair<int, int>>(h, { -1, -1 }));
+    std::vector<std::vector<std::pair<int, int>>> prevB(w, std::vector<std::pair<int, int>>(h, { -1, -1 }));
+
+    visitedA[A.first][A.second] = true;
+    visitedB[B.first][B.second] = true;
+
+    std::vector<std::pair<int, int>> directionsA1 = getDirectionsA(A, B, 1);
+    std::vector<std::pair<int, int>> directionsA2 = getDirectionsA(A, B, 2);
+    std::vector<std::pair<int, int>> directionsB1 = getDirectionsB(A, B, 1);
+    std::vector<std::pair<int, int>> directionsB2 = getDirectionsB(A, B, 2);
+
+    std::pair<int, int> meetPoint;
+
+    while (!queueA.empty() && !queueB.empty()) 
+    {
+        if (processRay(positionMatrix, layer, queueA, visitedA, prevA, directionsA1, visitedB, meetPoint) ||
+            processRay(positionMatrix, layer, queueA, visitedA, prevA, directionsA2, visitedB, meetPoint) ||
+            processRay(positionMatrix, layer, queueB, visitedB, prevB, directionsB1, visitedA, meetPoint) ||
+            processRay(positionMatrix, layer, queueB, visitedB, prevB, directionsB2, visitedA, meetPoint))
+        {
+            rayRestorePath(positionMatrix, layer, prevA, meetPoint, pathSymbol);
+            rayRestorePath(positionMatrix, layer, prevB, meetPoint, pathSymbol);
+
+            return traceBackPath(prevA, meetPoint) + traceBackPath(prevB, meetPoint);
+        }
+    }
+
+    return -1;
+}
+
+void rayConnectElements(char positionMatrix[layerIndex][w][h], int layer, int adjacencyMatrix[MAX_VERTICES][MAX_VERTICES], std::map<char, std::pair<int, int>>& elementCoordinates, std::unordered_map<char, int> elementMap)
+{
+    int leeSumOfLengths = 0;
+    int pathNum = 49; //'1'
+
+    std::set<std::pair<char, char>> connectedPairs;
+
+    while (!elementMap.empty())
+    {
+        char maxElement = findMaxConnectedElement(adjacencyMatrix, elementMap);
+        if (maxElement == '\0')
+        {
+            break;
+        }
+
+        int maxIndex = elementMap[maxElement];
+        bool connected = false;
+        for (const auto& pair : elementMap)
+        {
+            char otherElement = pair.first;
+            int otherIndex = pair.second;
+
+            if (adjacencyMatrix[maxIndex][otherIndex] > 0 && connectedPairs.find({ maxElement, otherElement }) == connectedPairs.end())
+            {
+                std::cout << "Connecting " << maxElement << " with " << otherElement << "...\n";
+                int result = -1;
+                for (layer = 0; layer < layerIndex; layer++)
+                {
+                    result = rayAlgorithm(positionMatrix, layer, elementCoordinates, maxElement, otherElement, pathNum);
+                    if (result != -1)
+                    {
+                        std::cout << "Length of shortest path: " << result << std::endl;
+                        printPositionMatrix(positionMatrix, layer);
+
+                        connectedPairs.insert({ maxElement, otherElement });
+                        connectedPairs.insert({ otherElement, maxElement });
+
+                        connected = true;
+
+                        leeSumOfLengths += result * adjacencyMatrix[maxIndex][otherIndex];
+                        pathNum++;
+                        break;
+                    }
+                    else
+                    {
+                        std::cout << "No path for " << maxElement << " with " << otherElement << "!\n";
+                        std::cout << "Trying layer [" << layer + 1 << "]...\n";
+                    }
+                }
+            }
+        }
+
+        if (!connected)
+        {
+            elementMap.erase(maxElement);
+        }
+    }
+    std::cout << "Sum of all Ray length * number of connections: " << leeSumOfLengths << std::endl;
 }
